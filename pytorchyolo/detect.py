@@ -244,6 +244,7 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
     :return: Returns DataLoader
     :rtype: DataLoader
     """
+    # 对图片预处理 搞成指定大小的
     dataset = ImageFolder(
         img_path,
         transform=transforms.Compose([DEFAULT_TRANSFORMS, Resize(img_size)]))
