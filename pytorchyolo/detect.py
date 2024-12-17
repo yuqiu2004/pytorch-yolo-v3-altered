@@ -50,21 +50,25 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path,
     :param nms_thres: IOU threshold for non-maximum suppression, defaults to 0.5
     :type nms_thres: float, optional
     """
+    # 加载图像数据
     dataloader = _create_data_loader(img_path, batch_size, img_size, n_cpu)
+    # 加载模型
     model = load_model(model_path, weights_path)
+    # 调用detect执行批量检测
     img_detections, imgs = detect(
         model,
         dataloader,
         output_path,
         conf_thres,
         nms_thres)
+    # 绘制检测结果并保存
     _draw_and_save_output_images(
         img_detections, imgs, img_size, output_path, classes)
-
     print(f"---- Detections were saved to: '{output_path}' ----")
     print(f"---- my name: 王强 Wangqiang ----")
 
-
+# 处理单张图像的目标检测。
+# 将输入图像转换为YOLO模型可接受的格式，并返回检测结果。
 def detect_image(model, image, img_size=416, conf_thres=0.5, nms_thres=0.5):
     """Inferences one image with model.
 
@@ -99,7 +103,9 @@ def detect_image(model, image, img_size=416, conf_thres=0.5, nms_thres=0.5):
         detections = rescale_boxes(detections[0], img_size, image.shape[:2])
     return detections.numpy()
 
-
+# 对输入的 DataLoader 中的图像进行推理。
+# 执行非极大值抑制（NMS）筛选检测框。
+# 输出检测结果和对应的图像路径。
 def detect(model, dataloader, output_path, conf_thres, nms_thres):
     """Inferences images with model.
 
@@ -222,7 +228,8 @@ def _draw_and_save_output_image(image_path, detections, img_size, output_path, c
     plt.savefig(output_path, bbox_inches="tight", pad_inches=0.0)
     plt.close()
 
-
+# 加载图像目录，生成 PyTorch 的 DataLoader 对象。
+# 应用 Resize 和 DEFAULT_TRANSFORMS 对图像进行预处理。
 def _create_data_loader(img_path, batch_size, img_size, n_cpu):
     """Creates a DataLoader for inferencing.
 
@@ -248,7 +255,9 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
         pin_memory=True)
     return dataloader
 
-
+# 使用 argparse 解析命令行参数。
+# 加载类别名。
+# 调用 detect_directory 执行检测任务。
 def run():
     print_environment_info()
     parser = argparse.ArgumentParser(description="Detect objects on images.")
