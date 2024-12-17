@@ -106,3 +106,12 @@ To train on the custom dataset run:
 poetry run yolo-train --model config/yolov3-custom.cfg --data config/custom.data
 ```
 
+## modify on pytorch yolo
+
+### 面向问题
+
+小目标检测效果较差 尤其是分辨率高的图像中 按理说提供了足够的特征 但是因为是直接通过预处理缩放操作舍弃了这部分特征 所以进行部分修改充分利用这部分特征来识别高分辨率图像中的小目标
+
+### 实现思路
+
+原来的检测操作中 会对所有图像进行同一个compose操作 包括缩放 这里我选择将此操作后置 针对每个图像的分辨率大小判断执行哪一种操作
