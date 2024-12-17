@@ -60,7 +60,8 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path,
         dataloader,
         output_path,
         conf_thres,
-        nms_thres)
+        nms_thres,
+        img_size)
     # 绘制检测结果并保存
     _draw_and_save_output_images(
         img_detections, imgs, img_size, output_path, classes)
@@ -108,10 +109,23 @@ def detect(model, dataloader, output_path, conf_thres, nms_thres, img_size, mult
         height, width = input_imgs.shape[-2:]  # Height, Width
         area = height * width  # 计算宽度和高度的乘积
         if area > img_size ** 2 * multiple_min : # 如果大于阈值 则需要剪切检测
-            print("img size is over the threshold")
+            print("=====>img size is over the threshold<=====")
             # 分别预测 然后组合detections...
+            # 定义默认的预处理操作
+            transform = transforms.Compose([DEFAULT_TRANSFORMS, 
+                                            transforms.Resize((img_size, img_size))])
+            # 对图像进行预处理和缩放
+            input_imgs = transform(input_imgs)
+            input_imgs = Variable(input_imgs.type(Tensor))
+            # Get detections
+            with torch.no_grad():
+                detections = model(input_imgs)
+                detections = non_max_suppression(detections, conf_thres, nms_thres)
+            # Store image and detections
+            img_detections.extend(detections)
+            imgs.extend(img_paths)
         else :
-            print("img size is below the threshold")
+            print("=====>img size is below the threshold<=====")
             # 定义默认的预处理操作
             transform = transforms.Compose([DEFAULT_TRANSFORMS, 
                                             transforms.Resize((img_size, img_size))])
