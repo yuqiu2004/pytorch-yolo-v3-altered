@@ -2,11 +2,14 @@
 
 from __future__ import division
 
+import glob
 import os
 import argparse
 import tqdm
 import random
 import numpy as np
+from datetime import datetime
+import shutil
 
 from PIL import Image
 
@@ -65,8 +68,66 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path,
     # 绘制检测结果并保存
     _draw_and_save_output_images(
         img_detections, imgs, img_size, output_path, classes)
+    if os.path.exists(output_path) and not os.listdir(output_path):  # 检查目录是否存在且为空
+        shutil.rmtree(output_path)  # 删除目录
+        print(f"---- no result is output and directory '{output_path}' has been removed ----")
+    # 有结果输出
+    else :
+        print(f"---- Detections were saved to: '{output_path}' ----")
+        print(f"---- my name: 王强 Wangqiang ----")
+
+def detect_simgle_image(model_path, weights_path, img_path, classes, output_path,
+                     batch_size=8, img_size=416, n_cpu=8, conf_thres=0.5, nms_thres=0.5):
+    # 处理图片路径
+    img_path = sorted(glob.glob(os.path.join(img_path, '*.*')))
+    # 加载模型
+    model = load_model(model_path, weights_path)
+    # 调用detect_image 单个检测
+    img_detections = detect_image(
+        model,
+        output_path,
+        conf_thres,
+        nms_thres,
+        img_size)
+    # 绘制检测结果并保存
+    _draw_and_save_output_images(
+        img_detections, img_path, img_size, output_path, classes)
     print(f"---- Detections were saved to: '{output_path}' ----")
     print(f"---- my name: 王强 Wangqiang ----")
+
+def detect_image(model, image, img_size=416, conf_thres=0.5, nms_thres=0.5):
+    """Inferences one image with model.
+
+    :param model: Model for inference
+    :type model: models.Darknet
+    :param image: Image to inference
+    :type image: nd.array
+    :param img_size: Size of each image dimension for yolo, defaults to 416
+    :type img_size: int, optional
+    :param conf_thres: Object confidence threshold, defaults to 0.5
+    :type conf_thres: float, optional
+    :param nms_thres: IOU threshold for non-maximum suppression, defaults to 0.5
+    :type nms_thres: float, optional
+    :return: Detections on image with each detection in the format: [x1, y1, x2, y2, confidence, class]
+    :rtype: nd.array
+    """
+    model.eval()  # Set model to evaluation mode
+
+    # Configure input
+    input_img = transforms.Compose([
+        DEFAULT_TRANSFORMS,
+        Resize(img_size)])(
+            (image, np.zeros((1, 5))))[0].unsqueeze(0)
+
+    if torch.cuda.is_available():
+        input_img = input_img.to("cuda")
+
+    # Get detections
+    with torch.no_grad():
+        detections = model(input_img)
+        detections = non_max_suppression(detections, conf_thres, nms_thres)
+        detections = rescale_boxes(detections[0], img_size, image.shape[:2])
+    return detections.numpy()
 
 
 # 对输入的 DataLoader 中的图像进行推理。
@@ -104,10 +165,14 @@ def detect(model, dataloader, output_path, conf_thres, nms_thres, img_size, mult
     img_detections = []  # Stores detections for each image index
     imgs = []  # Stores image paths
 
+    # 定义和之前等价的操作
+    transform = transforms.Compose([DEFAULT_TRANSFORMS, Resize(img_size)])
+    boxes = np.zeros((1, 5))
     for (img_paths, input_imgs) in tqdm.tqdm(dataloader, desc="Detecting"):
         # Configure input
         height, width = input_imgs.shape[-2:]  # Height, Width
         area = height * width  # 计算宽度和高度的乘积
+        """
         if area > img_size ** 2 * multiple_min : # 如果大于阈值 则需要剪切检测
             print("=====>img size is over the threshold<=====")
             # 分别预测 然后组合detections...
@@ -115,7 +180,7 @@ def detect(model, dataloader, output_path, conf_thres, nms_thres, img_size, mult
             transform = transforms.Compose([DEFAULT_TRANSFORMS, 
                                             transforms.Resize((img_size, img_size))])
             # 对图像进行预处理和缩放
-            input_imgs = transform(input_imgs)
+            input_imgs = transform(input_imgs, [])
             input_imgs = Variable(input_imgs.type(Tensor))
             # Get detections
             with torch.no_grad():
@@ -128,7 +193,7 @@ def detect(model, dataloader, output_path, conf_thres, nms_thres, img_size, mult
             print("=====>img size is below the threshold<=====")
             # 定义默认的预处理操作
             transform = transforms.Compose([DEFAULT_TRANSFORMS, 
-                                            transforms.Resize((img_size, img_size))])
+                                            Resize(img_size)])
             # 对图像进行预处理和缩放
             input_imgs = transform(input_imgs)
             input_imgs = Variable(input_imgs.type(Tensor))
@@ -139,6 +204,20 @@ def detect(model, dataloader, output_path, conf_thres, nms_thres, img_size, mult
             # Store image and detections
             img_detections.extend(detections)
             imgs.extend(img_paths)
+        """
+        print(input_imgs)
+        return img_detections, imgs
+        
+        # 对图像进行预处理和缩放
+        input_imgs, _ = transform((input_imgs, boxes))
+        input_imgs = Variable(input_imgs.type(Tensor))
+        # Get detections
+        with torch.no_grad():
+            detections = model(input_imgs)
+            detections = non_max_suppression(detections, conf_thres, nms_thres)
+        # Store image and detections
+        img_detections.extend(detections)
+        imgs.extend(img_paths)
     return img_detections, imgs
 
 
@@ -255,12 +334,13 @@ def _create_data_loader(img_path, batch_size, img_size, n_cpu):
 # 调用 detect_directory 执行检测任务。
 def run():
     print_environment_info()
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     parser = argparse.ArgumentParser(description="Detect objects on images.")
     parser.add_argument("-m", "--model", type=str, default="config/yolov3.cfg", help="Path to model definition file (.cfg)")
     parser.add_argument("-w", "--weights", type=str, default="weights/yolov3.weights", help="Path to weights or checkpoint file (.weights or .pth)")
     parser.add_argument("-i", "--images", type=str, default="data/samples", help="Path to directory with images to inference")
     parser.add_argument("-c", "--classes", type=str, default="data/coco.names", help="Path to classes label file (.names)")
-    parser.add_argument("-o", "--output", type=str, default="output", help="Path to output directory")
+    parser.add_argument("-o", "--output", type=str, default=f"output/{timestamp}", help="Path to output directory")    
     parser.add_argument("-b", "--batch_size", type=int, default=1, help="Size of each image batch")
     parser.add_argument("--img_size", type=int, default=416, help="Size of each image dimension for yolo")
     parser.add_argument("--n_cpu", type=int, default=8, help="Number of cpu threads to use during batch generation")
@@ -272,17 +352,27 @@ def run():
     # Extract class names from file
     classes = load_classes(args.classes)  # List of class names
 
-    detect_directory(
-        args.model,
-        args.weights,
-        args.images,
-        classes,
-        args.output,
-        batch_size=args.batch_size,
-        img_size=args.img_size,
-        n_cpu=args.n_cpu,
-        conf_thres=args.conf_thres,
-        nms_thres=args.nms_thres)
+    # detect_directory(
+    #     args.model,
+    #     args.weights,
+    #     args.images,
+    #     classes,
+    #     args.output,
+    #     batch_size=args.batch_size,
+    #     img_size=args.img_size,
+    #     n_cpu=args.n_cpu,
+    #     conf_thres=args.conf_thres,
+    #     nms_thres=args.nms_thres)
+    detect_simgle_image(args.model,
+                 args.weights,
+                args.images,
+                classes,
+                args.output,
+                batch_size=args.batch_size,
+                img_size=args.img_size,
+                n_cpu=args.n_cpu,
+                conf_thres=args.conf_thres,
+                nms_thres=args.nms_thres)
 
 
 if __name__ == '__main__':
