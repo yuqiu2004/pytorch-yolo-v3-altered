@@ -4,7 +4,8 @@ build
 .git
 *.egg-info
 dist
-output/*.png
+output/*
+!output/val-*
 data/*
 !data/get_coco_dataset.sh
 backup
