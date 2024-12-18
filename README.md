@@ -21,6 +21,45 @@ poetry install
 
 You need to join the virtual environment by running `poetry shell` in this directory before running any of the following commands without the `poetry run` prefix.
 
+## env build suggest 环境搭建建议 适用于 `NVIDIA GeForce RTX 3060`
+
+|  name  | version |
+| :----: | :-----: |
+| torch  | 1.12.1  |
+|  cuda  |  11.6   |
+| python | 3.9.20  |
+| numpy  | 1.23.4  |
+
+``` shell
+# cuda 安装 - 官网命令安装版本和实际的不同
+conda install nvidia/label/cuda-11.6.0::cuda --channel nvidia/label/cuda-11.6.0
+
+# cudnn 安装
+wget https://developer.nvidia.com/compute/cudnn/secure/8.4.0/local_installers/11.6/cudnn-linux-x86_64-8.4.0.27_cuda11.6-archive.tar.xz
+# 解压安装
+tar -xvf cudnn-linux-x86_64-8.4.0.27_cuda11.6-archive.tar.xz
+cd cudnn-linux-x86_64-8.4.0.27_cuda11.6-archive/
+sudo cp include/cudnn*.h /home/yuqiu/miniconda3/envs/itorch/include
+sudo cp lib/libcudnn* /home/yuqiu/miniconda3/envs/itorch/lib
+sudo chmod a+r /home/yuqiu/miniconda3/envs/itorch/include/cudnn*.h \
+               /home/yuqiu/miniconda3/envs/itorch/lib/libcudnn*
+
+
+# torch 安装
+pip install torch==1.12.1+cu116 torchvision==0.13.1+cu116 torchaudio==0.12.1 --extra-index-url https://download.pytorch.org/whl/cu116
+
+# numpy 下载
+conda install numpy=1.23.4
+
+# probably error
+ImportError: libGL.so.1: cannot open shared object file: No such file or directory
+# solve
+conda install -c conda-forge opencv
+conda install -c conda-forge pyopengl
+
+```
+
+
 #### Download pretrained weights
 
 ```bash
