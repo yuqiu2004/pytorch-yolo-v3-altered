@@ -8,6 +8,7 @@ import tqdm
 import random
 import numpy as np
 from datetime import datetime
+import shutil
 
 from PIL import Image
 
@@ -65,8 +66,13 @@ def detect_directory(model_path, weights_path, img_path, classes, output_path,
     # 绘制检测结果并保存
     _draw_and_save_output_images(
         img_detections, imgs, img_size, output_path, classes)
-    print(f"---- Detections were saved to: '{output_path}' ----")
-    print(f"---- my name: 王强 Wangqiang ----")
+    if os.path.exists(output_path) and not os.listdir(output_path):  # 检查目录是否存在且为空
+        shutil.rmtree(output_path)  # 删除目录
+        print(f"---- no result is output and directory '{output_path}' has been removed ----")
+    # 有结果输出
+    else :
+        print(f"---- Detections were saved to: '{output_path}' ----")
+        print(f"---- my name: 王强 Wangqiang ----")
 
 # 处理单张图像的目标检测。
 # 将输入图像转换为YOLO模型可接受的格式，并返回检测结果。
