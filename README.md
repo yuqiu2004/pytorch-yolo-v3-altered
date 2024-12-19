@@ -154,3 +154,6 @@ poetry run yolo-train --model config/yolov3-custom.cfg --data config/custom.data
 ### 实现思路
 
 原来的检测操作中 会对所有图像进行同一个compose操作 包括缩放 这里我选择将此操作后置 针对每个图像的分辨率大小判断执行哪一种操作
+
+*实现思路流程图*
+<img src="./assets/progress.png">
